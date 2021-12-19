@@ -1,2 +1,2 @@
 # Adaboost
-implementation of Adaboost algorithm in Machine Learning course
+Implementation of Adaboost algorithm in Machine Learning course
