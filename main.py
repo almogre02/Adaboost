@@ -1,17 +1,19 @@
 import numpy as np
 import time
 import random
-from adaboost import Rule, Point, adaboost, line_from_points, get_rule_prediction, update_weights
+from adaboost import Rule, Point, adaboost, line_from_points, get_rule_prediction, update_weights, is_positive
 
 if __name__ == '__main__':
-    ADABOOST_ITERATIONS = 100
+    Iterations = 100
     K = 8
+    points_list = []
+    true_error_test_set = [0.0]*K
+    empirical_error_training_set = [0.0]*K
     # read file
     f = open("../../Desktop/rectangle.txt")
     read_lines = f.read().splitlines()
 
     # split lines into array '1.25 2.50 1' --> [1.25, 2.50, 1]
-    points_list = []
     for i in range(len(read_lines)):
         points_list.insert(i, read_lines[i].split(' '))
 
@@ -27,84 +29,99 @@ if __name__ == '__main__':
     for i in range(len(points_list)):
         for j in range(0, len(points_list)):
             if i != j:
-                rules.insert(i,
-                             Rule(float(points_list[i][0]), float(points_list[i][1]),
-                                  float(points_list[j][0]), float(points_list[j][1])))
+                rules.insert(i, Rule(float(points_list[i][0]), float(points_list[i][1]), float(points_list[j][0]), float(points_list[j][1])))
     #  set for every rule the set of points tagged as +
-    for r in rules:  # loop each rule
-        a1, b1, c1 = line_from_points([r.x1, r.y1], [r.x2, r.y2])
+    for rule in rules:  # loop each rule
+        a1, b1, c1 = line_from_points([rule.p1_x, rule.p1_y], [rule.p2_x, rule.p2_y])
         for p in points_arr:  # loop each point for each rule
-            if get_rule_prediction(a1, b1, c1, p.x, p.y, np.sqrt(r.x1**2 + r.y1**2) < np.sqrt(r.x2**2 + r.y2**2)):
-                r.positive_points.append(p)
+            p1_distance = np.sqrt(rule.p1_x ** 2 + rule.p1_y ** 2)
+            p2_distance = np.sqrt(rule.p2_x ** 2 + rule.p2_y ** 2)
+            if p1_distance < p2_distance:
+                check = 1
             else:
-                r.negative_points.append(p)
+                check = -1
+            if get_rule_prediction(a1, b1, c1, p.x, p.y, check):
+                rule.positive_points.append(p)
+            else:
+                rule.negative_points.append(p)
     start_time=time.perf_counter()#
-    true_error, empirical_error = [0 for _ in range(K)], [0 for _ in range(K)]
-    for _ in range(ADABOOST_ITERATIONS):
 
+    for y in range(Iterations):
+        best_rules = []
         # split data randomly into two halves
         random.shuffle(points_arr)
-        arr_size = int(len(points_arr) / 2)
-        train_data = points_arr[:arr_size]
-        test_data = points_arr[arr_size:]
+        split_size = int(len(points_arr) / 2)
+
+        training_set = points_arr[split_size:]
+        test_set = points_arr[:split_size]
 
         # init points weights
-        for ll in train_data:
-            ll.weight = 1 / len(train_data)
+        for p in training_set:
+            p.weight = 1 / len(training_set)
 
         # execute 8 iteration of adaboost to find the 8 best rules (chosen by the biggest alpha)
-        results = []
         for i in range(K):
-            result = adaboost(rules, train_data)
-            results.insert(i, [result, result.alpha])
-            update_weights(result, train_data)
+            adaboost_best_rule = adaboost(rules, training_set)
+            best_rules.insert(i, [adaboost_best_rule, adaboost_best_rule.alpha])
+            update_weights(training_set, adaboost_best_rule)
 
+        H_k = []
+        for i in range(0, K):
+            rules_iteration = []
+            for j in range(0, i+1):
+                rules_iteration.append(best_rules[i])
+            H_k.insert(i, rules_iteration)
         # build Hk(x) rules
-        Hk = [[results[0]],
-              [results[0], results[1]],
-              [results[0], results[1], results[2]],
-              [results[0], results[1], results[2], results[3]],
-              [results[0], results[1], results[2], results[3], results[4]],
-              [results[0], results[1], results[2], results[3], results[4], results[5]],
-              [results[0], results[1], results[2], results[3], results[4], results[5], results[6]],
-              [results[0], results[1], results[2], results[3], results[4], results[5], results[6], results[7]]]
+        '''H_k = [[best_rules[0]],
+               [best_rules[0], best_rules[1]],
+               [best_rules[0], best_rules[1], best_rules[2]],
+               [best_rules[0], best_rules[1], best_rules[2], best_rules[3]],
+               [best_rules[0], best_rules[1], best_rules[2], best_rules[3], best_rules[4]],
+               [best_rules[0], best_rules[1], best_rules[2], best_rules[3], best_rules[4], best_rules[5]],
+               [best_rules[0], best_rules[1], best_rules[2], best_rules[3], best_rules[4], best_rules[5], best_rules[6]],
+               [best_rules[0], best_rules[1], best_rules[2], best_rules[3], best_rules[4], best_rules[5], best_rules[6], best_rules[7]]]'''
 
         # get Hk(x) final prediction on every point
         for p in points_arr:
             p.final_prediction = []
-            for i in range(len(Hk)):
+            for i in range(len(H_k)):
                 final_prediction = 0.0
-                for j in range(len(Hk[i])):
-                    if p in Hk[i][j][0].positive_points:
+                for j in range(len(H_k[i])):
+                    if is_positive(p, H_k[i][j][0]):
+                    #if p in Hk[i][j][0].positive_points:
                         prediction = 1
                     else:
                         prediction = -1
-                    final_prediction += Hk[i][j][1] * prediction
+                    final_prediction += H_k[i][j][1] * prediction
                 p.final_prediction.insert(i, np.sign(final_prediction))
 
         # compute empirical error of every Hk(x)
         # empirical error  = num of misclassified points in train set / num of points
         for i in range(K):
-            counter = 0
-            for p2 in train_data:
+            training_counter = 0
+            for p2 in training_set:
                 if (p2.tag == 1 and p2.final_prediction[i] == -1) or \
                         (p2.tag == -1 and p2.final_prediction[i] == 1):
-                    counter += 1
-            empirical_error[i] += counter / len(train_data)
+                    training_counter += 1
+            empirical_error_training_set[i] += training_counter / len(training_set)
 
         # compute true error of every Hk(x)
         # true error  = num of misclassified points in test set / num of points
 
         for i in range(K):
-            counter = 0
-            for p2 in test_data:
+            test_counter = 0
+            for p2 in test_set:
                 if (p2.tag == 1 and p2.final_prediction[i] == -1) or \
                         (p2.tag == -1 and p2.final_prediction[i] == 1):  # two cases of misclassification
-                    counter += 1
-            true_error[i] += counter / len(test_data)
+                    test_counter += 1
+            true_error_test_set[i] += test_counter / len(test_set)
 
     end_time=time.perf_counter()
     print(end_time-start_time)
     for k in range(K):
-        print("true_error avg for ", ADABOOST_ITERATIONS, " runs: ", true_error[k] / ADABOOST_ITERATIONS,
-              ", empirical_error: ", empirical_error[k] / ADABOOST_ITERATIONS)
+        print("Training Set: the empirical error of the training set for #{} rules is: {} ".format(k+1, empirical_error_training_set[k] / Iterations))
+        print("Test Set: the true error of the test set for #{} rules is: {} ".format(k+1, true_error_test_set[k] / Iterations))
+        print("")
+
+       #print("true_error avg for ", ADABOOST_ITERATIONS, " runs: ", true_error_test_set[k] / ADABOOST_ITERATIONS,
+        #      ", empirical_error: ", empirical_error_training_set[k] / ADABOOST_ITERATIONS)
