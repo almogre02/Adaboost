@@ -1,10 +1,11 @@
 import numpy as np
 import time
 import random
-from python_code import Rule, Point, adaboost, line_from_points, get_rule_prediction, update_weights
+from adaboost import Rule, Point, adaboost, line_from_points, get_rule_prediction, update_weights
 
 if __name__ == '__main__':
-    ADABOOST_ITERATIONS=1
+    ADABOOST_ITERATIONS = 100
+    K = 8
     # read file
     f = open("../../Desktop/rectangle.txt")
     read_lines = f.read().splitlines()
@@ -38,7 +39,7 @@ if __name__ == '__main__':
             else:
                 r.negative_points.append(p)
     start_time=time.perf_counter()#
-    true_error, empirical_error = [0 for _ in range(8)], [0 for _ in range(8)]
+    true_error, empirical_error = [0 for _ in range(K)], [0 for _ in range(K)]
     for _ in range(ADABOOST_ITERATIONS):
 
         # split data randomly into two halves
@@ -53,7 +54,7 @@ if __name__ == '__main__':
 
         # execute 8 iteration of adaboost to find the 8 best rules (chosen by the biggest alpha)
         results = []
-        for i in range(8):
+        for i in range(K):
             result = adaboost(rules, train_data)
             results.insert(i, [result, result.alpha])
             update_weights(result, train_data)
@@ -83,7 +84,7 @@ if __name__ == '__main__':
 
         # compute empirical error of every Hk(x)
         # empirical error  = num of misclassified points in train set / num of points
-        for i in range(8):
+        for i in range(K):
             counter = 0
             for p2 in train_data:
                 if (p2.tag == 1 and p2.final_prediction[i] == -1) or \
@@ -94,7 +95,7 @@ if __name__ == '__main__':
         # compute true error of every Hk(x)
         # true error  = num of misclassified points in test set / num of points
 
-        for i in range(8):
+        for i in range(K):
             counter = 0
             for p2 in test_data:
                 if (p2.tag == 1 and p2.final_prediction[i] == -1) or \
@@ -104,6 +105,6 @@ if __name__ == '__main__':
 
     end_time=time.perf_counter()
     print(end_time-start_time)
-    for k in range(8):
+    for k in range(K):
         print("true_error avg for ", ADABOOST_ITERATIONS, " runs: ", true_error[k] / ADABOOST_ITERATIONS,
               ", empirical_error: ", empirical_error[k] / ADABOOST_ITERATIONS)

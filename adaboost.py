@@ -65,10 +65,18 @@ def adaboost(rules_set, points_set):
                 rules_set[ij].total_error += point.weight
             """
         # compute rule`s alpha
-        rules_set[ij].alpha = 0.5 * np.log((1 - rules_set[ij].total_error) / rules_set[ij].total_error)
-        # keep rule with lowest weighted error
+        numerator = 1 - rules_set[ij].total_error
+        denominator = rules_set[ij].total_error
+        alpha_t = 0.5 * np.log(numerator / denominator)
+        rules_set[ij].alpha = alpha_t
+
         if rules_set[ij].total_error < best_rule.total_error:
             best_rule = rules_set[ij]
+
+        """rules_set[ij].alpha = 0.5 * np.log((1 - rules_set[ij].total_error) / rules_set[ij].total_error)
+        # keep rule with lowest weighted error
+        if rules_set[ij].total_error < best_rule.total_error:
+            best_rule = rules_set[ij]"""
     return best_rule
 
 
