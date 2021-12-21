@@ -12,31 +12,31 @@ class Point:
 
 
 class Rule:
-    def __init__(self, x1, y1, x2, y2, t_e=0.0):
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
+    def __init__(self, p1_x, p1_y, p2_x, p2_y, t_e=0.0):
+        self.p1_x = p1_x
+        self.p1_y = p1_y
+        self.p2_x = p2_x
+        self.p2_y = p2_y
         self.total_error = t_e
         self.alpha = 0.0
         self.positive_points = []
         self.negative_points = []
 
 
-def get_rule_prediction(a, b, c, x0, y0, flag):
+def get_rule_prediction(a, b, c, x0, y0, check):
     if b > 0:
         a = -a
         b = -b
         c = -c
     temp = a * x0 + b * y0 + c
     # flag indicates the direction of the line
-    if flag:
+    if check == 1:
         if temp <= 0:
             return True
         else:
             return False
        # return temp <= 0
-    else:
+    else: # check == -1
         if temp >= 0:
             return True
         else:
@@ -44,11 +44,11 @@ def get_rule_prediction(a, b, c, x0, y0, flag):
      #   return temp >= 0
 
 
-def line_from_points(p1, q):
-    a = q[1] - p1[1]
-    b = p1[0] - q[0]
-    c = -(a * (p1[0]) + b * (p1[1]))
-    return a, b, c
+def line_from_points(p1, p2):
+    x_diff = p1[0] - p2[0]
+    y_diff = p2[1] - p1[1]
+    z = -(y_diff * (p1[0]) + x_diff * (p1[1]))
+    return y_diff, x_diff, z
 
 
 def is_positive(point, rule):
@@ -60,13 +60,13 @@ def is_positive(point, rule):
 def adaboost(rules_set, points_set):
     max_error = sys.float_info.max
     best_rule = Rule(0, 0, 0, 0, max_error)
-    for ij in range(len(rules_set)):  # loop each rule
-        rules_set[ij].total_error = 0.0
+    for i in range(len(rules_set)):  # loop each rule
+        rules_set[i].total_error = 0.0
         for point in points_set:  # loop each point for each rule
             # if rule predicts + but point actually - or rule predicts - but point actually +
-            if (is_positive(point, rules_set[ij]) and point.tag == -1) or \
-                    (not is_positive(point, rules_set[ij]) and point.tag == 1):
-                rules_set[ij].total_error += point.weight
+            if (is_positive(point, rules_set[i]) and point.tag == -1) or \
+                    (is_positive(point, rules_set[i]) is False and point.tag == 1):
+                rules_set[i].total_error += point.weight
             """
             if (point in rules_set[ij].positive_points and point.tag == -1) or \
                     (point not in rules_set[ij].positive_points and point.tag == 1):
@@ -75,37 +75,37 @@ def adaboost(rules_set, points_set):
         # compute rule`s alpha
         #rules_set[ij].alpha = 0.5 * np.log((1 - rules_set[ij].total_error) / rules_set[ij].total_error)
         # keep rule with lowest weighted error
-        numerator = 1 - rules_set[ij].total_error
-        denominator = rules_set[ij].total_error
+        numerator = 1 - rules_set[i].total_error
+        denominator = rules_set[i].total_error
         alpha_t = 0.5 * np.log(numerator / denominator)
-        rules_set[ij].alpha = alpha_t
+        rules_set[i].alpha = alpha_t
 
-        if rules_set[ij].total_error < best_rule.total_error:
-            best_rule = rules_set[ij]
+        if rules_set[i].total_error < best_rule.total_error:
+            best_rule = rules_set[i]
     return best_rule
 
 
 def update_weights(best_rule, points):
     weights_sum = 0
-    for u in range(len(points)):
-        if points[u].x == best_rule.x1 and points[u].y == best_rule.y1 or \
-                points[u].x == best_rule.x2 and points[u].y == best_rule.y2:
+    for i in range(len(points)):
+        if points[i].x == best_rule.p1_x and points[i].y == best_rule.p1_y or \
+                points[i].x == best_rule.p2_x and points[i].y == best_rule.p2_y:
             continue
 
-        success_tag_weight = points[u].weight * np.math.e ** best_rule.alpha
-        unsuccess_tag_weight = points[u].weight * np.math.e ** (-1 * best_rule.alpha)
+        success_tag_weight = points[i].weight * np.math.e ** best_rule.alpha
+        unsuccess_tag_weight = points[i].weight * np.math.e ** (-1 * best_rule.alpha)
 
         # two cases of misclassification
-        '''if (points[u] in best_rule.positive_points and points[u].tag == -1) or \
-                (points[u] not in best_rule.positive_points and points[u].tag == 1):'''
-        if (is_positive(points[u], best_rule) and points[u].tag == -1) or \
-                (is_positive(points[u], best_rule) is False and points[u].tag == 1):
-            points[u].weight = success_tag_weight
-            #points[u].weight = points[u].weight * np.exp(best_rule.alpha)
+        '''if (points[i] in best_rule.positive_points and points[i].tag == -1) or \
+                (points[i] not in best_rule.positive_points and points[i].tag == 1):'''
+        if (is_positive(points[i], best_rule) and points[i].tag == -1) or \
+                (is_positive(points[i], best_rule) is False and points[i].tag == 1):
+            points[i].weight = success_tag_weight
+            #points[i].weight = points[i].weight * np.exp(best_rule.alpha)
         else:
-            points[u].weight = unsuccess_tag_weight
-            #points[u].weight = points[u].weight * np.exp(-1 * best_rule.alpha)
+            points[i].weight = unsuccess_tag_weight
+            #points[i].weight = points[i].weight * np.exp(-1 * best_rule.alpha)
 
-        weights_sum += points[u].weight
-    for u in range(len(points)):
-        points[u].weight = points[u].weight / weights_sum
+        weights_sum += points[i].weight
+    for i in range(len(points)):
+        points[i].weight = points[i].weight / weights_sum
