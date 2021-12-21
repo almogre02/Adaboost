@@ -31,9 +31,17 @@ def get_rule_prediction(a, b, c, x0, y0, flag):
     temp = a * x0 + b * y0 + c
     # flag indicates the direction of the line
     if flag:
-        return temp <= 0
+        if temp <= 0:
+            return True
+        else:
+            return False
+       # return temp <= 0
     else:
-        return temp >= 0
+        if temp >= 0:
+            return True
+        else:
+            return False
+     #   return temp >= 0
 
 
 def line_from_points(p1, q):
@@ -65,8 +73,13 @@ def adaboost(rules_set, points_set):
                 rules_set[ij].total_error += point.weight
             """
         # compute rule`s alpha
-        rules_set[ij].alpha = 0.5 * np.log((1 - rules_set[ij].total_error) / rules_set[ij].total_error)
+        #rules_set[ij].alpha = 0.5 * np.log((1 - rules_set[ij].total_error) / rules_set[ij].total_error)
         # keep rule with lowest weighted error
+        numerator = 1 - rules_set[ij].total_error
+        denominator = rules_set[ij].total_error
+        alpha_t = 0.5 * np.log(numerator / denominator)
+        rules_set[ij].alpha = alpha_t
+
         if rules_set[ij].total_error < best_rule.total_error:
             best_rule = rules_set[ij]
     return best_rule
@@ -78,12 +91,20 @@ def update_weights(best_rule, points):
         if points[u].x == best_rule.x1 and points[u].y == best_rule.y1 or \
                 points[u].x == best_rule.x2 and points[u].y == best_rule.y2:
             continue
+
+        success_tag_weight = points[u].weight * np.math.e ** best_rule.alpha
+        unsuccess_tag_weight = points[u].weight * np.math.e ** (-1 * best_rule.alpha)
+
         # two cases of misclassification
-        if (points[u] in best_rule.positive_points and points[u].tag == -1) or \
-                (points[u] not in best_rule.positive_points and points[u].tag == 1):
-            points[u].weight = points[u].weight * np.exp(best_rule.alpha)
+        '''if (points[u] in best_rule.positive_points and points[u].tag == -1) or \
+                (points[u] not in best_rule.positive_points and points[u].tag == 1):'''
+        if (is_positive(points[u], best_rule) and points[u].tag == -1) or \
+                (is_positive(points[u], best_rule) is False and points[u].tag == 1):
+            points[u].weight = success_tag_weight
+            #points[u].weight = points[u].weight * np.exp(best_rule.alpha)
         else:
-            points[u].weight = points[u].weight * np.exp(-1 * best_rule.alpha)
+            points[u].weight = unsuccess_tag_weight
+            #points[u].weight = points[u].weight * np.exp(-1 * best_rule.alpha)
 
         weights_sum += points[u].weight
     for u in range(len(points)):
